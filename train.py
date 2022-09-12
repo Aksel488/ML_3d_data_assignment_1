@@ -145,14 +145,6 @@ def load_data():
     return train_dataset
 
 def load_model():
-    checkpoint_dir = f'{MODEL_PATH}/training_checkpoints'
-    checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-                                    discriminator_optimizer=discriminator_optimizer,
-                                    generator=generator,
-                                    discriminator=discriminator)
-
-    ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
-    
     if ckpt_manager.latest_checkpoint:
         checkpoint.restore(ckpt_manager.latest_checkpoint)
         print ('Latest checkpoint restored!!')
@@ -218,7 +210,7 @@ generator_optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
 discriminator_optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
 
 # checkpoint for saving during traing
-checkpoint_dir = MODEL_PATH + '/training_checkpoints'
+checkpoint_dir = f'{MODEL_PATH}/training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
 checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                 discriminator_optimizer=discriminator_optimizer,
@@ -282,6 +274,9 @@ def train():
     file.write(f'finished trainign at {s}' + "\n")
     file.close()
 
+def descriminator_to_classifier():
+    load_model()
+    
 
 def test():
     load_model()

@@ -1,0 +1,82 @@
+Model: "Generator"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ reshape_2 (Reshape)         (None, 1, 1, 1, 100)      0         
+                                                                 
+ conv3d_transpose_8 (Conv3DT  (None, 4, 4, 4, 512)     3276800   
+ ranspose)                                                       
+                                                                 
+ batch_normalization_7 (Batc  (None, 4, 4, 4, 512)     2048      
+ hNormalization)                                                 
+                                                                 
+ re_lu_7 (ReLU)              (None, 4, 4, 4, 512)      0         
+                                                                 
+ conv3d_transpose_9 (Conv3DT  (None, 8, 8, 8, 256)     67108864  
+ ranspose)                                                       
+                                                                 
+ batch_normalization_8 (Batc  (None, 8, 8, 8, 256)     1024      
+ hNormalization)                                                 
+                                                                 
+ re_lu_8 (ReLU)              (None, 8, 8, 8, 256)      0         
+                                                                 
+ conv3d_transpose_10 (Conv3D  (None, 16, 16, 16, 128)  134217728 
+ Transpose)                                                      
+                                                                 
+ batch_normalization_9 (Batc  (None, 16, 16, 16, 128)  512       
+ hNormalization)                                                 
+                                                                 
+ re_lu_9 (ReLU)              (None, 16, 16, 16, 128)   0         
+                                                                 
+ conv3d_transpose_11 (Conv3D  (None, 32, 32, 32, 64)   268435456 
+ Transpose)                                                      
+                                                                 
+ batch_normalization_10 (Bat  (None, 32, 32, 32, 64)   256       
+ chNormalization)                                                
+                                                                 
+ re_lu_10 (ReLU)             (None, 32, 32, 32, 64)    0         
+                                                                 
+ conv3d_transpose_12 (Conv3D  (None, 64, 64, 64, 1)    16777216  
+ Transpose)                                                      
+                                                                 
+=================================================================
+Total params: 489,819,904
+Trainable params: 489,817,984
+Non-trainable params: 1,920
+_________________________________________________________________
+
+
+
+
+
+
+
+Model: "Discriminator"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ conv3d (Conv3D)             (None, 32, 32, 32, 64)    2097216   
+                                                                 
+ leaky_re_lu (LeakyReLU)     (None, 32, 32, 32, 64)    0         
+                                                                 
+ conv3d_1 (Conv3D)           (None, 16, 16, 16, 128)   33554560  
+                                                                 
+ leaky_re_lu_1 (LeakyReLU)   (None, 16, 16, 16, 128)   0         
+                                                                 
+ conv3d_2 (Conv3D)           (None, 8, 8, 8, 256)      16777472  
+                                                                 
+ leaky_re_lu_2 (LeakyReLU)   (None, 8, 8, 8, 256)      0         
+                                                                 
+ conv3d_3 (Conv3D)           (None, 4, 4, 4, 512)      8389120   
+                                                                 
+ leaky_re_lu_3 (LeakyReLU)   (None, 4, 4, 4, 512)      0         
+                                                                 
+reshape (Reshape)            (None, 32768)             0         
+                                                                 
+ dense (Dense)               (None, 1)                 32769     
+                                                                 
+=================================================================
+Total params: 60,851,137
+Trainable params: 60,851,137
+Non-trainable params: 0
+_________________________________________________________________
