@@ -12,10 +12,6 @@ MODEL_NAME = 'test_1'
 MODEL_PATH = f'./{MODEL}/{MODEL_NAME}'
 
 DATASET = 'modelnet10.npz'
-CHECKPOINT_GEN = f'{MODEL_PATH}/generator.pth'
-CHECKPOINT_DIS = f'{MODEL_PATH}/discriminator.pth'
-SAVE_MODEL = True
-LOAD_MODEL = False
 LEARNING_RATE = 1e-4
 BUFFER_SIZE = 500
 BATCH_SIZE = 32
@@ -25,11 +21,6 @@ NUM_IMAGES_TO_GENERATE = 4
 NUM_WORKERS = 1
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-s = int(time.time())
-file = open('run.txt','w')
-file.write(f'started trainign at {s}' + "\n")
-file.close()
 
 
 """# Load data and create models"""
@@ -153,28 +144,21 @@ def load_data():
 
     return train_dataset
 
+def load_model():
+    checkpoint_dir = f'{MODEL_PATH}/training_checkpoints'
+    checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
+                                    discriminator_optimizer=discriminator_optimizer,
+                                    generator=generator,
+                                    discriminator=discriminator)
 
-"""# Save and Load functions
+    ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=3)
+    
+    if ckpt_manager.latest_checkpoint:
+        checkpoint.restore(ckpt_manager.latest_checkpoint)
+        print ('Latest checkpoint restored!!')
 
-"""
 
-def save_generator(generator):
-    pass
-
-def load_generator():
-    generator = []
-    return generator
-
-def save_discriminator(discriminator):
-    pass
-
-def load_discriminator():
-    discriminator = []
-    return discriminator
-
-"""# Save images and tensorboard
-
-"""
+"""Save images"""
 
 def save_images(model, epoch, test_input):
     predictions = model(test_input, training=False)
@@ -193,9 +177,6 @@ def save_images(model, epoch, test_input):
         plt.clf()
 
         i += 1
-
-def write_to_tensorboard():
-    pass
 
 """# Train function"""
 
@@ -246,51 +227,74 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
 
 ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=2)
 
-# fixed seed for generating images after each epoch
-seed = tf.random.normal([NUM_IMAGES_TO_GENERATE, Z_DIM]) 
-
-g_loss = []
-d_loss = []
-iteration = 1
-
-file = open('run.txt','a')
-file.write(f'Loading data' + "\n")
-train_dataset = load_data()
-file.write(f'Done loading data' + "\n")
-file.close()
-
-for epoch in range(EPOCHS):
-    file = open('run.txt','a')
-    file.write(f'Started on epoch {epoch + 1}' + "\n")
-    file.close() 
-    start = time.time()
-
-    for voxel_batch in train_dataset:
-        gen_loss, disc_loss = train_fn(voxel_batch)
-
-        g_loss.append([iteration, gen_loss])
-        d_loss.append([iteration, disc_loss])
-        iteration += 1
-
-        file = open('run.txt','a')
-        file.write(f'Done with iteration {iteration}' + "\n")
-        file.close()
-
-    # save
-    ckpt_manager.save()
-    # save_images(generator, epoch + 1, seed) 
-
-    print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
-
-    file = open('run.txt','a')
-    file.write(f'epoch {epoch + 1} took {time.time()-start} seconds' + "\n")
+def train():
+    s = int(time.time())
+    file = open('run.txt','w')
+    file.write(f'started trainign at {s}' + "\n")
     file.close()
 
-# save_images(generator, EPOCHS, seed)
-np.savez_compressed('loss_plot', generator = g_loss, discriminator = d_loss)
+    # fixed seed for generating images after each epoch
+    seed = tf.random.normal([NUM_IMAGES_TO_GENERATE, Z_DIM]) 
 
-s = int(time.time())
+    g_loss = []
+    d_loss = []
+    iteration = 1
 
-file = open('run.txt','a')
-file.write(f'finished trainign at {s}' + "\n")
-file.close()
+    file = open('run.txt','a')
+    file.write(f'Loading data' + "\n")
+    train_dataset = load_data()
+    file.write(f'Done loading data' + "\n")
+    file.close()
+
+    for epoch in range(EPOCHS):
+        file = open('run.txt','a')
+        file.write(f'Started on epoch {epoch + 1}' + "\n")
+        file.close() 
+        start = time.time()
+
+        for voxel_batch in train_dataset:
+            gen_loss, disc_loss = train_fn(voxel_batch)
+
+            g_loss.append([iteration, gen_loss])
+            d_loss.append([iteration, disc_loss])
+            iteration += 1
+
+            file = open('run.txt','a')
+            file.write(f'Done with iteration {iteration}' + "\n")
+            file.close()
+
+        # save
+        ckpt_manager.save()
+        # save_images(generator, epoch + 1, seed) 
+
+        print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
+
+        file = open('run.txt','a')
+        file.write(f'epoch {epoch + 1} took {time.time()-start} seconds' + "\n")
+        file.close()
+
+    # save_images(generator, EPOCHS, seed)
+    np.savez_compressed('loss_plot', generator = g_loss, discriminator = d_loss)
+
+    s = int(time.time())
+
+    file = open('run.txt','a')
+    file.write(f'finished trainign at {s}' + "\n")
+    file.close()
+
+
+def test():
+    load_model()
+
+    ''' 
+    @TODO 
+    code for generating images
+    '''
+
+def main():
+    # train()
+    test()
+
+
+if __name__ == "__main__":
+    main()
