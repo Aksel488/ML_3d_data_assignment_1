@@ -8,17 +8,16 @@ from tensorflow.keras import layers, Sequential
 
 
 MODEL = 'models'
-MODEL_NAME = 'test_1'
+MODEL_NAME = 'test_2'
 MODEL_PATH = f'./{MODEL}/{MODEL_NAME}'
 
 DATASET = 'modelnet10.npz'
 LEARNING_RATE = 1e-4
-BUFFER_SIZE = 500
+BUFFER_SIZE = 5000
 BATCH_SIZE = 32
 Z_DIM = 100
-EPOCHS = 10
+EPOCHS = 5
 NUM_IMAGES_TO_GENERATE = 4
-NUM_WORKERS = 1
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -84,16 +83,20 @@ def make_discriminator_model():
     model.add(layers.Reshape((64, 64, 64, 1)))
 
     model.add(layers.Conv3D(64, (32, 32, 32), strides=2, padding='same'))
+    model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU(0.2))
 
     model.add(layers.Conv3D(128, (16, 16, 16), strides=2, padding='same'))
+    model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU(0.2))
 
     model.add(layers.Conv3D(256, (8, 8, 8), strides=2, padding='same'))
+    model.add(layers.BatchNormalization())
     model.add(layers.LeakyReLU(0.2))
 
     model.add(layers.Conv3D(512, (4, 4, 4), strides=2, padding='same'))
-    model.add(layers.LeakyReLU(0.2))
+    model.add(layers.BatchNormalization())
+    model.add(layers.Activation('sigmoid'))
 
     model.add(layers.Reshape((32768,)))
     model.add(layers.Dense(1))
@@ -108,26 +111,32 @@ def discriminator_loss(real_output, fake_output):
 
 """# Save samples from training data"""
 
-'''
-Take first voxel_array of each class and store inn shapes.
-Plot the 3d shape and saves an image to images
-'''
-# shapes = []
-# for i in range(10):
-#     for j in range(len(train_y)):
-#         if i == train_y[j]:
-#             shapes.append([classes[i], train[j]])
-#             break
+def render_training_data():
+    '''
+    Take first voxel_array of each class and store inn shapes.
+    Plot the 3d shape and saves a render to images
+    '''
 
-# for shape in shapes:
-#     ax = plt.axes(projection='3d')
-#     ax.voxels(shape[1], facecolors='red')
-#     ax.view_init(azim=-60, elev=30)
-#     plt.title(shape[0])
-#     plt.axis('off')
-#     plt.savefig(f'images/{shape[0]}.png')
-#     # plt.show()
-#     plt.clf()
+    data = np.load('modelnet10.npz', allow_pickle=True)
+    train = data['train_voxel']
+    train_y = data['train_labels']
+    
+    shapes = []
+    for i in range(10):
+        for j in range(len(train_y)):
+            if i == train_y[j]:
+                shapes.append([classes[i], train[j]])
+                break
+
+    for shape in shapes:
+        ax = plt.axes(projection='3d')
+        ax.voxels(shape[1], facecolors='red')
+        ax.view_init(azim=-60, elev=30)
+        plt.title(shape[0])
+        plt.axis('off')
+        plt.savefig(f'images/{shape[0]}.png')
+        # plt.show()
+        plt.clf()
 
 """# Load data function"""
 
@@ -153,14 +162,15 @@ def load_model():
 """Save images"""
 
 def save_images(model, epoch, test_input):
-    predictions = model(test_input, training=False)
-
     img_save_path = os.path.join(MODEL_PATH, 'epoch_images')
     if not os.path.exists(img_save_path):
         os.makedirs(img_save_path)
+
+    predictions = model(test_input, training=False)
     
     i = 1
     for shape in predictions:
+        shape = np.reshape(shape, (64, 64, 64))
         ax = plt.axes(projection='3d')
         ax.voxels(shape, facecolors='red')
         ax.view_init(azim=-60, elev=30)
@@ -189,11 +199,13 @@ def train_fn(voxel_objects):
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
-    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+    
+    # averaging the loss between generated and real and only updates if more than 20% wrong
+    # to avoid the descriminator outlearning the generator
+    if (disc_loss > 2):
+        discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
     return gen_loss, disc_loss
-
-"""# Train loop"""
 
 # Create folder for saving and loading model if not exists
 if not os.path.exists(MODEL_PATH):
@@ -202,8 +214,8 @@ if not os.path.exists(MODEL_PATH):
 # initiate models
 generator = make_generator_model()
 discriminator = make_discriminator_model()
-# generator.summary()
-# discriminator.summary()
+print(generator.summary())
+print(discriminator.summary())
 
 # optimizers
 generator_optimizer = tf.keras.optimizers.Adam(LEARNING_RATE)
@@ -218,6 +230,8 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                 discriminator=discriminator)
 
 ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=2)
+
+"""# Train loop"""
 
 def train():
     s = int(time.time())
@@ -257,7 +271,7 @@ def train():
 
         # save
         ckpt_manager.save()
-        # save_images(generator, epoch + 1, seed) 
+        save_images(generator, epoch + 1, seed) 
 
         print ('Time for epoch {} is {} sec'.format(epoch + 1, time.time()-start))
 
@@ -265,8 +279,8 @@ def train():
         file.write(f'epoch {epoch + 1} took {time.time()-start} seconds' + "\n")
         file.close()
 
-    # save_images(generator, EPOCHS, seed)
-    np.savez_compressed('loss_plot', generator = g_loss, discriminator = d_loss)
+    save_images(generator, EPOCHS, seed)
+    np.savez_compressed(f'loss_plot_{MODEL_NAME}', generator = g_loss, discriminator = d_loss)
 
     s = int(time.time())
 
@@ -274,21 +288,25 @@ def train():
     file.write(f'finished trainign at {s}' + "\n")
     file.close()
 
+
 def descriminator_to_classifier():
     load_model()
+    discriminator
     
 
 def test():
     load_model()
 
-    ''' 
-    @TODO 
-    code for generating images
-    '''
+    inputs = tf.random.normal([4, Z_DIM])
+    predictions = generator(inputs, training=False)
+    np.savez_compressed('predictions', predictions = predictions)
+
+    # save_images(generator, 1, inputs)
 
 def main():
-    # train()
-    test()
+    # render_training_data()
+    train()
+    # test()
 
 
 if __name__ == "__main__":
