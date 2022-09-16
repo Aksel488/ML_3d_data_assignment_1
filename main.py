@@ -275,6 +275,10 @@ def save_plots(history):
     
     
 def convert_sequential_model():
+    '''
+    Function code from: [https://stackoverflow.com/questions/61130836/convert-functional-model-to-sequential-keras]
+    Converts Sequential model to Functional model.
+    '''
     input_layer = Input(batch_shape=discriminator.layers[0].input_shape)
     prev_layer = input_layer
     for layer in discriminator.layers:
