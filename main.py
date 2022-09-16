@@ -236,11 +236,6 @@ def test_GAN():
     load_model()
 
     inputs = tf.random.normal([config.NUM_IMAGES_TO_GENERATE, config.Z_DIM])
-
-    ### Uncomment to save the predicitons as a numpy array
-    # predictions = generator(inputs, training=False)
-    # np.savez_compressed('predictions', predictions = predictions)
-
     save_images(generator, 1, inputs)
 
     

@@ -21,8 +21,8 @@ conda install -c os
 ```
 
 ### Running
-Main code for training / fine-tuning both the GAN and the discriminator-classifier can be found in the file train.py. 
-Run ```python train.py```
+Main code for training / fine-tuning both the GAN and the discriminator-classifier can be found in the file main.py. 
+Run ```python main.py```
 
 ### Folder Structure 
 ```
@@ -31,38 +31,37 @@ project
 │
 └───images
 │   │ bathtub.png
-│   │ ... 
-│   │
-│   └───plots
-│       │ gen_disc_loss.png
-│       │  ...       
+│   │ ...      
 │            
 └───models
+│   │ model_summary.txt
+│   │ classifier_summary.txt
 │   │
 │   └───plots
-│   │   │ accuracy.png
-│   │   │ ...
+│   │   │ classifier_accuracy.png
+│   │   │ classifier_loss.png
+│   │   │ model_1_loss_plot.png
+│   │   │ model_2_loss_plot.png
 │   │    
-│   └───test_2
-│       │ 
+│   └───model_1
+│   │   │
+│   │   └───epoch_images
+│   │       │ image_1_at_epoch_010.png
+│   │       │ ...
+│   │
+│   └───model_2
 │       │
 │       └───epoch_images
 │           │ image_1_at_epoch_005.png
 │           │ ...
-│ 
-└───classifier_summary.txt
-│
-└───loss_plot_test_1.npz
-│
-└───loss_plot_test_2.npz
-│
-└───model_summary.txt
 │
 └───modelnet10.npz
 │   
-└───test.py
+└───config.py
 │    
-└───train.py
+└───main.py
+│    
+└───model.py
 ```
 
 
