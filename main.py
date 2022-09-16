@@ -107,6 +107,11 @@ def save_images(model, epoch, test_input):
         i += 1
 
 
+'''
+Code down until line 237
+based on: https://www.tensorflow.org/tutorials/generative/dcgan
+'''
+
 @tf.function
 def train_gan_fn(voxel_objects):
     '''
@@ -130,40 +135,15 @@ def train_gan_fn(voxel_objects):
 
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
     
-    # averaging the loss between generated and real and only updates if more than 20% wrong
+    # summing the loss between generated and real, only updates if more than 20% wrong
     # to avoid the descriminator outlearning the generator
-    if (disc_loss > ((config.BATCH_SIZE * 2) * (20 / 100))):
+    # 
+    # Not sure if implemented correctly, might be: 
+    # if (disc_loss / (config.BATCH_SIZE * 2) > 0.2):
+    if (disc_loss > ((config.BATCH_SIZE * 2) * 0.2)):
         discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
 
     return gen_loss, disc_loss
-
-
-# Create folder for saving and loading model if not exists
-if not os.path.exists(config.MODEL_PATH):
-    os.makedirs(config.MODEL_PATH)
-
-# initiate loss
-cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-# models
-generator = make_generator_model()
-discriminator = make_discriminator_model()
-print(generator.summary())
-print(discriminator.summary())
-
-# optimizers
-generator_optimizer = tf.keras.optimizers.Adam(config.LEARNING_RATE)
-discriminator_optimizer = tf.keras.optimizers.Adam(config.LEARNING_RATE)
-
-# checkpoint for saving during traing
-checkpoint_dir = f'{config.MODEL_PATH}/training_checkpoints'
-checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
-checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
-                                discriminator_optimizer=discriminator_optimizer,
-                                generator=generator,
-                                discriminator=discriminator)
-
-ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=2)
 
 
 def train_GAN():
@@ -227,6 +207,34 @@ def train_GAN():
     file = open('run.txt','a')
     file.write(f'finished trainign at {s}' + "\n")
     file.close()
+
+
+# Create folder for saving and loading model if not exists
+if not os.path.exists(config.MODEL_PATH):
+    os.makedirs(config.MODEL_PATH)
+
+# initiate loss
+cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+# models
+generator = make_generator_model()
+discriminator = make_discriminator_model()
+print(generator.summary())
+print(discriminator.summary())
+
+# optimizers
+generator_optimizer = tf.keras.optimizers.Adam(config.LEARNING_RATE)
+discriminator_optimizer = tf.keras.optimizers.Adam(config.LEARNING_RATE)
+
+# checkpoint for saving during traing
+checkpoint_dir = f'{config.MODEL_PATH}/training_checkpoints'
+checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
+                                discriminator_optimizer=discriminator_optimizer,
+                                generator=generator,
+                                discriminator=discriminator)
+
+ckpt_manager = tf.train.CheckpointManager(checkpoint, checkpoint_dir, max_to_keep=2)
 
 
 def test_GAN():
