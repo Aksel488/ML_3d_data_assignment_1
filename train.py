@@ -1,10 +1,19 @@
+from gc import callbacks
 import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
-from tensorflow.keras import layers, Sequential
+
+from tensorflow.keras import Input
+from tensorflow.keras.models import Sequential, Model
+from tensorflow.keras.layers import (
+    Dense, MaxPooling3D, Concatenate, Flatten, BatchNormalization,
+    InputLayer, ReLU, LeakyReLU, Activation, Conv3DTranspose, Conv3D,
+    Reshape, 
+)
+
 
 
 MODEL = 'models'
@@ -13,11 +22,13 @@ MODEL_PATH = f'./{MODEL}/{MODEL_NAME}'
 
 DATASET = 'modelnet10.npz'
 LEARNING_RATE = 1e-4
+LEARNING_RATE_CLASSIFIER = 1e-3
 BUFFER_SIZE = 5000
 BATCH_SIZE = 32
 Z_DIM = 100
-EPOCHS = 5
+EPOCHS = 3
 NUM_IMAGES_TO_GENERATE = 4
+N_CLASSES = 10
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -40,31 +51,31 @@ def make_generator_model():
     '''
     model = Sequential()
 
-    model.add(layers.InputLayer(input_shape=(Z_DIM,)))
-    model.add(layers.Reshape((1,1,1,Z_DIM)))
+    model.add(InputLayer(input_shape=(Z_DIM,)))
+    model.add(Reshape((1,1,1,Z_DIM))) 
     assert model.output_shape == (None, 1, 1, 1, Z_DIM) # None is the batch size
 
-    model.add(layers.Conv3DTranspose(512, (4, 4, 4), strides=4, padding='same', use_bias=False))
+    model.add(Conv3DTranspose(512, (4, 4, 4), strides=4, padding='same', use_bias=False))
     assert model.output_shape == (None, 4, 4, 4, 512)
-    model.add(layers.BatchNormalization())
-    model.add(layers.ReLU())
+    model.add(BatchNormalization())
+    model.add(ReLU())
 
-    model.add(layers.Conv3DTranspose(256, (8, 8, 8), strides=2, padding='same', use_bias=False))
+    model.add(Conv3DTranspose(256, (8, 8, 8), strides=2, padding='same', use_bias=False))
     assert model.output_shape == (None, 8, 8, 8, 256)
-    model.add(layers.BatchNormalization())
-    model.add(layers.ReLU())
+    model.add(BatchNormalization())
+    model.add(ReLU())
 
-    model.add(layers.Conv3DTranspose(128, (16, 16, 16), strides=2, padding='same', use_bias=False))
+    model.add(Conv3DTranspose(128, (16, 16, 16), strides=2, padding='same', use_bias=False))
     assert model.output_shape == (None, 16, 16, 16, 128)
-    model.add(layers.BatchNormalization())
-    model.add(layers.ReLU())
+    model.add(BatchNormalization())
+    model.add(ReLU())
 
-    model.add(layers.Conv3DTranspose(64, (32, 32, 32), strides=2, padding='same', use_bias=False))
+    model.add(Conv3DTranspose(64, (32, 32, 32), strides=2, padding='same', use_bias=False))
     assert model.output_shape == (None, 32, 32, 32, 64)
-    model.add(layers.BatchNormalization())
-    model.add(layers.ReLU())
+    model.add(BatchNormalization())
+    model.add(ReLU())
 
-    model.add(layers.Conv3DTranspose(1, (64, 64, 64), strides=2, padding='same', use_bias=False, activation='sigmoid'))
+    model.add(Conv3DTranspose(1, (64, 64, 64), strides=2, padding='same', use_bias=False, activation='sigmoid'))
     assert model.output_shape == (None, 64, 64, 64, 1)
 
     return model
@@ -79,27 +90,27 @@ def make_discriminator_model():
     '''
     model = Sequential()
 
-    model.add(layers.InputLayer(input_shape=(64, 64, 64)))
-    model.add(layers.Reshape((64, 64, 64, 1)))
+    model.add(InputLayer(input_shape=(64, 64, 64)))
+    model.add(Reshape((64, 64, 64, 1)))
 
-    model.add(layers.Conv3D(64, (32, 32, 32), strides=2, padding='same'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.LeakyReLU(0.2))
+    model.add(Conv3D(64, (32, 32, 32), strides=2, padding='same'))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(0.2))
 
-    model.add(layers.Conv3D(128, (16, 16, 16), strides=2, padding='same'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.LeakyReLU(0.2))
+    model.add(Conv3D(128, (16, 16, 16), strides=2, padding='same'))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(0.2))
 
-    model.add(layers.Conv3D(256, (8, 8, 8), strides=2, padding='same'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.LeakyReLU(0.2))
+    model.add(Conv3D(256, (8, 8, 8), strides=2, padding='same'))
+    model.add(BatchNormalization())
+    model.add(LeakyReLU(0.2))
 
-    model.add(layers.Conv3D(512, (4, 4, 4), strides=2, padding='same'))
-    model.add(layers.BatchNormalization())
-    model.add(layers.Activation('sigmoid'))
+    model.add(Conv3D(512, (4, 4, 4), strides=2, padding='same'))
+    model.add(BatchNormalization())
+    model.add(Activation('sigmoid'))
 
-    model.add(layers.Reshape((32768,)))
-    model.add(layers.Dense(1))
+    model.add(Reshape((32768,)))
+    model.add(Dense(1))
 
     return model
 
@@ -140,18 +151,24 @@ def render_training_data():
 
 """# Load data function"""
 
-def load_data():
+def load_data(type):
     '''
     function for loading data from the training data and returning it as a Dataset
     '''
 
     data = np.load(DATASET, allow_pickle=True)
     train_voxel = data["train_voxel"] # Training 3D voxel samples
-    #train_labels = data["train_labels"] # Training labels (integers from 0 to 9)
-
-    train_dataset = tf.data.Dataset.from_tensor_slices(train_voxel).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
-
-    return train_dataset
+    
+    if type == 'classifier':
+        train_labels = data["train_labels"] # Training labels (integers from 0 to 9)
+        #train_voxel = tf.data.Dataset.from_tensor_slices(train_voxel).shuffle(BUFFER_SIZE, seed=10).batch(BATCH_SIZE)
+        #train_labels = tf.data.Dataset.from_tensor_slices(train_labels).shuffle(BUFFER_SIZE, seed=10).batch(BATCH_SIZE)
+        return train_voxel, train_labels
+        
+    else:
+        #train_labels = data["train_labels"] # Training labels (integers from 0 to 9)
+        train_dataset = tf.data.Dataset.from_tensor_slices(train_voxel).shuffle(BUFFER_SIZE).batch(BATCH_SIZE)
+        return train_dataset
 
 def load_model():
     if ckpt_manager.latest_checkpoint:
@@ -287,12 +304,104 @@ def train():
     file = open('run.txt','a')
     file.write(f'finished trainign at {s}' + "\n")
     file.close()
+    
+    
+def myprint(s):
+    with open('classifier_summary.txt','a') as f:
+        print(s, file=f)
+
+    
+def save_plots(history):
+    """
+    Function for plotting and saving accuracy and loss of a model.
+    """
+    img_save_path = os.path.join('./models', 'plots')
+    if not os.path.exists(img_save_path):
+        os.makedirs(img_save_path)
+    
+    plt.plot(history.history['accuracy'])
+    plt.title('Model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.savefig(img_save_path + '/accuracy.png')
+    plt.clf()
+    
+    plt.plot(history.history['loss'])
+    plt.title('Model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.savefig(img_save_path + '/loss.png') 
+    
+    
+def convert_sequential_model():
+    input_layer = Input(batch_shape=discriminator.layers[0].input_shape)
+    prev_layer = input_layer
+    for layer in discriminator.layers:
+        layer._inbound_nodes = []
+        prev_layer = layer(prev_layer)
+        
+    return Model([input_layer], [prev_layer]), input_layer
 
 
 def descriminator_to_classifier():
     load_model()
-    discriminator
+    discriminator.build()
+    discriminator.pop() # Drop last Dense layer
+    discriminator.pop() # Drop last reshape layer
     
+    func_model, input_layer = convert_sequential_model()
+    
+    c2 = MaxPooling3D(pool_size=(8, 8, 8), padding='same')(func_model.layers[7].output)
+    c3 = MaxPooling3D(pool_size=(4, 4, 4), padding='same')(func_model.layers[10].output)
+    c4 = MaxPooling3D(pool_size=(2, 2, 2), padding='same')(func_model.layers[13].output)
+    concat = Concatenate(axis=-1)([c2, c3, c4])
+    out = Flatten()(concat)
+    out = Dense(N_CLASSES, activation='softmax')(out)
+    
+    return Model(input_layer, out)
+
+def train_classifier():
+    s = int(time.time())
+    file = open('run.txt','w')
+    file.write(f'started trainign at {s}' + "\n")
+    file.close()
+    
+    classifier = descriminator_to_classifier()
+    classifier.summary(print_fn=myprint)
+    
+    train_voxel, train_labels = load_data(type='classifier')
+    
+    classifier.compile(
+        optimizer = tf.keras.optimizers.Adam(LEARNING_RATE_CLASSIFIER),
+        loss = tf.keras.losses.SparseCategoricalCrossentropy(name='loss'), 
+        metrics = tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy')
+    )
+    
+    checkpoint_path = './models/classifier/cp.ckpt'
+    
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                    save_weights_only=True,
+                                                    verbose=1)
+    
+        # Train the model on the training data and training labels 
+    history = classifier.fit(
+        train_voxel, 
+        train_labels,
+        batch_size = BATCH_SIZE,
+        epochs = EPOCHS,
+        shuffle = True,
+        verbose = 1,
+        callbacks=[cp_callback]
+    )
+    
+    save_plots(history) # Save loss and accuracy plots 
+    
+    s = int(time.time())
+    file = open('run.txt','a')
+    file.write(f'finished trainign at {s}' + "\n")
+    file.close()
+        
+
 
 def test():
     load_model()
@@ -305,8 +414,9 @@ def test():
 
 def main():
     # render_training_data()
-    train()
+    #train()
     # test()
+    train_classifier()
 
 
 if __name__ == "__main__":
